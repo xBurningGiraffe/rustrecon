@@ -20,6 +20,7 @@ RustRecon is a Rust-based recon utility for IP and domain searches using a varie
   - Hunter.Io - HUNTERIO_API
   - Netlas - NETLAS_API
   - ZoomEye - ZOOMEYE_API
+  - InternetDB (no API required)
 
 # Usage/Installation #
 Note: Before compiling, each search type API key needs to be set as a local environment variable with the proper name listed above.
