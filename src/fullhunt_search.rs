@@ -1,10 +1,10 @@
-use reqwest::header::HeaderMap;
-use reqwest::{Client};
 use regex::Regex;
-use std::fs::File;
-use std::io::Write;
+use reqwest::header::HeaderMap;
+use reqwest::Client;
 use serde_json::{self, Value};
 use std::env;
+use std::fs::File;
+use std::io::Write;
 
 pub async fn query_fullhunt(domain: &str) -> Result<String, Box<dyn std::error::Error>> {
     let api_key = env::var("FULLHUNT_API").expect("FULLHUNT_API not found");
@@ -42,9 +42,16 @@ pub async fn run_single_search_fullhunt(
         let parsed_result = serde_json::from_str::<Value>(&fullhunt_result)?;
         if let Some(output_file) = output_file {
             let mut file = File::create(output_file)?;
-            writeln!(file, "FullHunt: \n{}", serde_json::to_string_pretty(&parsed_result)?)?;
+            writeln!(
+                file,
+                "FullHunt: \n{}",
+                serde_json::to_string_pretty(&parsed_result)?
+            )?;
         } else {
-            println!("FullHunt: \n{}", serde_json::to_string_pretty(&parsed_result)?);
+            println!(
+                "FullHunt: \n{}",
+                serde_json::to_string_pretty(&parsed_result)?
+            );
         }
     } else {
         println!("Invalid target: {}", target);

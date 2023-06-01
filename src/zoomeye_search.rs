@@ -24,9 +24,9 @@ pub async fn query_zoom_eye(ip: &str) -> Result<String, Error> {
     Ok(response_body)
 }
 
-pub fn is_ip(target: &str) -> bool {
+/*pub fn is_ip(target: &str) -> bool {
     target.parse::<IpAddr>().is_ok()
-}
+}*/
 
 pub fn get_zoom_eye_api_key() -> Option<String> {
     env::var("ZOOMEYE_API").ok()

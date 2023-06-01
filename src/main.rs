@@ -1,3 +1,4 @@
+#![allow(unused)]
 use clap::{App, Arg};
 use std::io::Write;
 mod censys_search;
@@ -10,6 +11,7 @@ mod netlas_search;
 mod projectdiscovery_search;
 mod shodan_search;
 mod zoomeye_search;
+mod internetdb_search;
 use shodan_search::run_single_search_shodan;
 use censys_search::run_single_search_censys;
 use fullhunt_search::run_single_search_fullhunt;
@@ -19,6 +21,7 @@ use criminalip_search::run_single_search_criminalip;
 use netlas_search::run_single_search_netlas_ip;
 use zoomeye_search::run_single_search_zoomeye;
 use cisco_investigate_search::run_single_search_cisco_investigate;
+use internetdb_search::run_single_search_internetdb;
 
 async fn run_all_searches(
     target: &str,
@@ -26,7 +29,7 @@ async fn run_all_searches(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(ip) = target.parse::<std::net::IpAddr>() {
         // IP target, include relevant search types
-        let search_types = vec!["shodan", "censys", "criminalip", "netlas", "zoomeye"];
+        let search_types = vec!["shodan", "censys", "criminalip", "netlas", "zoomeye", "internetdb"];
         for search_type in search_types {
             match search_type {
                 "shodan" => run_single_search_shodan(&ip.to_string(), output_file).await?,
@@ -84,6 +87,7 @@ async fn main() {
                     "hunterio",
                     "netlas",
                     "zoomeye",
+                    "internetdb",
                 ])
                 .help("The type of search")
                 .takes_value(true),
@@ -170,6 +174,11 @@ async fn main() {
                         println!("Error while running ZoomEye search: {}", err);
                     }
                 }
+            "internetdb" => {
+                if let Err(err) = run_single_search_internetdb(target, output_file).await {
+                        println!("Error while running InternetDB search: {}", err);
+                }
+            }
                 _ => println!("Invalid search type: {}", search_type),
             } 
         } else { 

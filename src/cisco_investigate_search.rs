@@ -1,6 +1,8 @@
+#![allow(unused)]
 use reqwest::{header, Client};
 use std::env;
 use regex::Regex;
+
 
 pub fn is_domain(target: &str) -> bool {
     // Regular expression for domain validation

@@ -15,5 +15,6 @@ pub fn print_help() {
     println!("  criminalip        IP search using CriminalIP");
     println!("  hunterio          Domain search using HunterIO");
     println!("  netlas            IP or domain search using Netlas");
-    println!("  zoomeye           IP search using ZoomEye")
+    println!("  zoomeye           IP search using ZoomEye");
+    println!("  internetdb        Vulnerability check for IP using internetdb");
 }
