@@ -3,7 +3,7 @@
 RustRecon is a Rust-based recon utility for IP and domain searches using a variety of free, open-source search APIs (aside from Cisco Investigate). This project is still a work-in-progress.
 
 # To Do #
-- Filter JSON responses for important information to output
+- Filter JSON responses for output
 - Email search for applicable search types
 
 # Prerequisites #
@@ -20,6 +20,13 @@ RustRecon is a Rust-based recon utility for IP and domain searches using a varie
   - Hunter.Io - HUNTERIO_API
   - Netlas - NETLAS_API
   - ZoomEye - ZOOMEYE_API
-Note: Each search type API key needs to be set as a local environment variable with the proper name listed above. 
+
+# Usage/Installation #
+Note: Before compiling, each search type API key needs to be set as a local environment variable with the proper name listed above.
+
+$ git clone https://github.com/xBurningGiraffe/rustrecon.git
+$ cd rustrecon
+$ cargo build
+
    
 
