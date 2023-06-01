@@ -1,6 +1,9 @@
 use reqwest::{Client, Error};
 use std::env;
 use std::net::IpAddr;
+use serde_json::Value;
+use std::fs::File;
+use std::io::Write;
 
 pub fn is_domain(target: &str) -> bool {
     let domain_regex = regex::Regex::new(r"^([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,}$").unwrap();
@@ -46,4 +49,23 @@ pub async fn query_netlas_ip(target: &str) -> Result<String, Error> {
 
 
 
+}
+
+pub async fn run_single_search_netlas_ip(
+    target: &str,
+    output_file: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if is_ip(target) {
+        let netlas_result = query_netlas_ip(target).await?;
+        let parsed_result = serde_json::from_str::<Value>(&netlas_result)?;
+        if let Some(output_file) = output_file {
+            let mut file = File::create(output_file)?;
+            writeln!(file, "Netlas(IP): \n{}", serde_json::to_string_pretty(&parsed_result)?)?;
+        } else {
+            println!("Netlas(Domain): \n{}", serde_json::to_string_pretty(&parsed_result)?);
+        }
+    } else {
+        println!("Invalid target: {}", target);
+    }
+    Ok(())
 }

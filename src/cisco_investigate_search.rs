@@ -31,3 +31,15 @@ pub async fn query_cisco_investigate(domain: &str) -> Result<String, Box<dyn std
 fn get_cisco_investigate_access_token() -> Option<String> {
     env::var("CISCO_INVESTIGATE_API").ok()
 }
+
+pub async fn run_single_search_cisco_investigate(target: &str, output_file: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
+    if is_domain(target) {
+        let cisco_investigate_result =
+            query_cisco_investigate(target).await?;
+        println!("Cisco Investigate: \n{:?}", cisco_investigate_result);
+        Ok(()) // Return Ok(()) to indicate success
+    } else {
+        println!("Invalid target: {}", target);
+        Ok(()) // Return Ok(()) to indicate success
+    }
+}

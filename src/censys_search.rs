@@ -1,12 +1,12 @@
 use reqwest::header::{HeaderValue, AUTHORIZATION};
-
-
-
 use std::env;
 use std::error::Error;
 use std::fmt;
 use std::net::IpAddr;
 use base64;
+use std::fs::File;
+use std::io::Write;
+use serde_json::Value;
 
 #[derive(Debug)]
 pub struct CensysSearchError {
@@ -68,4 +68,27 @@ pub fn get_censys_id() -> Option<String> {
 
 pub fn get_censys_secret() -> Option<String> {
     env::var("CENSYS_SECRET").ok()
+}
+
+pub async fn run_single_search_censys(
+    target: &str,
+    output_file: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if is_ip(target) {
+        let censys_result = query_censys(target).await?;
+        let parsed_result = serde_json::from_str::<Value>(&censys_result)?;
+
+        match output_file {
+            Some(file_path) => {
+                let mut file = File::create(file_path)?;
+                write!(file, "{}", serde_json::to_string_pretty(&parsed_result)?)?;
+            }
+            None => {
+                println!("{}", serde_json::to_string_pretty(&parsed_result)?);
+            }
+        }
+    } else {
+        println!("Invalid target: {}", target);
+    }
+    Ok(())
 }

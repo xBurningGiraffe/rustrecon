@@ -1,33 +1,46 @@
-use std::env;
+use clap::{App, Arg};
+use std::io::Write;
 mod censys_search;
+mod cisco_investigate_search;
 mod criminalip_search;
 mod fullhunt_search;
 mod helper;
 mod hunterio_search;
 mod netlas_search;
 mod projectdiscovery_search;
+mod shodan_search;
 mod zoomeye_search;
-mod cisco_investigate_search;
-use serde_json::{Value, Map};
-use serde_json::json;
-use std::net::IpAddr;
+use shodan_search::run_single_search_shodan;
+use censys_search::run_single_search_censys;
+use fullhunt_search::run_single_search_fullhunt;
+use hunterio_search::run_single_search_hunterio;
+use projectdiscovery_search::run_single_search_projectdiscovery;
+use criminalip_search::run_single_search_criminalip;
+use netlas_search::run_single_search_netlas_ip;
+use zoomeye_search::run_single_search_zoomeye;
+use cisco_investigate_search::run_single_search_cisco_investigate;
 
-async fn run_all_searches(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if let Ok(ip) = target.parse::<IpAddr>() {
+async fn run_all_searches(
+    target: &str,
+    output_file: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Ok(ip) = target.parse::<std::net::IpAddr>() {
         // IP target, include relevant search types
-        let search_types = vec!["censys", "criminalip", "netlas", "zoomeye"];
+        let search_types = vec!["shodan", "censys", "criminalip", "netlas", "zoomeye"];
         for search_type in search_types {
             match search_type {
-                "censys" => run_single_search_censys(&ip.to_string()).await?,
-                "criminalip" => run_single_search_criminalip(&ip.to_string()).await?,
-                "netlas" => run_single_search_netlas_ip(&ip.to_string()).await?,
-                "zoomeye" => run_single_search_zoomeye(&ip.to_string()).await?,
+                "shodan" => run_single_search_shodan(&ip.to_string(), output_file).await?,
+                "censys" => run_single_search_censys(&ip.to_string(), output_file).await?,
+                "criminalip" => run_single_search_criminalip(&ip.to_string(), output_file).await?,
+                "netlas" => run_single_search_netlas_ip(&ip.to_string(), output_file).await?,
+                "zoomeye" => run_single_search_zoomeye(&ip.to_string(), output_file).await?,
                 _ => println!("Invalid search type: {}", search_type),
             }
         }
     } else if cisco_investigate_search::is_domain(target) {
         // Domain target, include relevant search types
         let search_types = vec![
+            "shodan",
             "cisco_investigate",
             "fullhunt",
             "projectdiscovery",
@@ -35,10 +48,15 @@ async fn run_all_searches(target: &str) -> Result<(), Box<dyn std::error::Error>
         ];
         for search_type in search_types {
             match search_type {
-                "cisco_investigate" => run_single_search_cisco_investigate(target).await?,
-                "fullhunt" => run_single_search_fullhunt(target).await?,
-                "projectdiscovery" => run_single_search_projectdiscovery(target).await?,
-                "hunterio" => run_single_search_hunterio(target).await?,
+                "shodan" => run_single_search_shodan(target, output_file).await?,
+                "cisco_investigate" => {
+                    run_single_search_cisco_investigate(target, output_file).await?
+                }
+                "fullhunt" => run_single_search_fullhunt(target, output_file).await?,
+                "projectdiscovery" => {
+                    run_single_search_projectdiscovery(target, output_file).await?
+                }
+                "hunterio" => run_single_search_hunterio(target, output_file).await?,
                 _ => println!("Invalid search type: {}", search_type),
             }
         }
@@ -50,231 +68,137 @@ async fn run_all_searches(target: &str) -> Result<(), Box<dyn std::error::Error>
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
+async fn main() {
+    let matches = App::new("Rust Recon")
+        .arg(
+            Arg::new("search_type")
+                .long("search_type")
+                .value_name("SEARCH_TYPE")
+                .possible_values(&[
+                    "shodan",
+                    "censys",
+                    "fullhunt",
+                    "projectdiscovery",
+                    "investigate",
+                    "criminalip",
+                    "hunterio",
+                    "netlas",
+                    "zoomeye",
+                ])
+                .help("The type of search")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("target")
+                .long("target")
+                .value_name("TARGET")
+                .help("The target IP address or domain")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("output")
+                .short('o')
+                .long("output")
+                .value_name("FILE")
+                .help("Output the results to a file")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("all")
+                .short('a')
+                .long("all")
+                .help("Run all applicable search types on the target"),
+        )
+        .get_matches();
 
-    if args.len() < 4 {
-        helper::print_help();
-        return Ok(());
+    let search_type = matches.value_of("search_type");
+    let target = matches.value_of("target").unwrap();
+    let output_file = matches.value_of("output");
+
+    if let Some(help) = matches.value_of("help") {
+        if help == "help" {
+            helper::print_help();
+            return;
+        }
     }
 
-    let mut target_option: Option<String> = None;
-    let mut should_run_all_searches = false;
-
-    for (index, arg) in args.iter().enumerate() {
-        if arg == "-t" && index + 1 < args.len() {
-            target_option = Some(args[index + 1].clone());
-        }
-        if arg == "-all" {
-            should_run_all_searches = true;
-        }
-    }
-
-    if let Some(target) = target_option {
-        if should_run_all_searches {
-            run_all_searches(&target).await?;
-        } else {
-            run_single_search(&target).await?;
-        }
-    } else {
-        helper::print_help();
-    }
-
-    Ok(())
-}
-
-async fn run_single_search(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if censys_search::is_ip(target) {
-        let censys_result = censys_search::query_censys(target).await?;
-        let parsed_result: Value = serde_json::from_str(&censys_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("Censys:\n{}", formatted_result);
-    } else if fullhunt_search::is_domain(target) {
-        let fullhunt_result = fullhunt_search::query_fullhunt(target).await?;
-        let parsed_result: Value = serde_json::from_str(&fullhunt_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("FullHunt:\n{}", formatted_result);
-    } else if projectdiscovery_search::is_domain(target) {
-        let projectdiscovery_result =
-            projectdiscovery_search::query_projectdiscovery(target).await?;
-        let parsed_result: Value = serde_json::from_str(&projectdiscovery_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("ProjectDiscovery:\n{}", formatted_result);
-    } else if criminalip_search::is_ip(target) {
-        let criminalip_result = criminalip_search::query_criminalip(target).await?;
-        let parsed_result: Value = serde_json::from_str(&criminalip_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("CriminalIP:\n{}", formatted_result);
-    } else if hunterio_search::is_domain(target) {
-        let hunterio_result = hunterio_search::query_hunterio(target).await?;
-        let parsed_result: Value = serde_json::from_str(&hunterio_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("HunterIO:\n{}", formatted_result);
-    } else if netlas_search::is_domain(target) {
-        let netlas_result = netlas_search::query_netlas_domain(target).await?;
-        let parsed_result: Value = serde_json::from_str(&netlas_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("Netlas (Domain):\n{}", formatted_result);
-    } else if netlas_search::is_ip(target) {
-        let netlas_result = netlas_search::query_netlas_ip(target).await?;
-        let parsed_result: Value = serde_json::from_str(&netlas_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("Netlas (IP):\n{}", formatted_result);
-    } else if zoomeye_search::is_ip(target) {
-        let zoomeye_result = zoomeye_search::query_zoom_eye(target).await?;
-        let parsed_result: Value = serde_json::from_str(&zoomeye_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("ZoomEye:\n{}", formatted_result);
-    } else if cisco_investigate_search::is_domain(target) {
-        match cisco_investigate_search::query_cisco_investigate(target).await {
-            Ok(cisco_investigate_result) => {
-                println!("Cisco Investigate:\n{:?}", cisco_investigate_result);
-            }
-            Err(err) => {
-                println!("Error: {}", err);
+    if let Some(search_type) = search_type {
+        match search_type {
+            "shodan" => { 
+                if let Err(err) = run_single_search_shodan(target, output_file).await {
+                println!("Error while running Shodan search: {}", err);
             }
         }
-    } else {
-        println!("Invalid target: {}", target);
-    }
-    
-    Ok(())
-}
-
-
-async fn run_single_search_censys(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if censys_search::is_ip(target) {
-        let censys_result = censys_search::query_censys(target).await?;
-        let parsed_result: Value = serde_json::from_str(&censys_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("Censys:\n{}", formatted_result);
-    } else {
-        println!("Invalid target: {}", target);
-    }
-    Ok(())
-}
-
-async fn run_single_search_fullhunt(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if fullhunt_search::is_domain(target) {
-        let fullhunt_result = fullhunt_search::query_fullhunt(target).await?;
-        let parsed_result: Value = serde_json::from_str(&fullhunt_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("FullHunt:\n{}", formatted_result);
-    } else {
-        println!("Invalid target: {}", target);
-    }
-    Ok(())
-}
-
-async fn run_single_search_projectdiscovery(
-    target: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if projectdiscovery_search::is_domain(target) {
-        let projectdiscovery_result =
-            projectdiscovery_search::query_projectdiscovery(target).await?;
-        let parsed_result: Value = serde_json::from_str(&projectdiscovery_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("ProjectDiscovery:\n{}", formatted_result);
-    } else {
-        println!("Invalid target: {}", target);
-    }
-    Ok(())
-}
-
-async fn run_single_search_criminalip(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if criminalip_search::is_ip(target) {
-        let criminalip_result = criminalip_search::query_criminalip(target).await?;
-        let parsed_result: Value = serde_json::from_str(&criminalip_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("CriminalIP:\n{}", formatted_result);
-    } else {
-        println!("Invalid target: {}", target);
-    }
-    Ok(())
-}
-
-async fn run_single_search_hunterio(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if hunterio_search::is_domain(target) {
-        let hunterio_result = hunterio_search::query_hunterio(target).await?;
-        let parsed_result: Value = serde_json::from_str(&hunterio_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("HunterIO:\n{}", formatted_result);
-    } else {
-        println!("Invalid target: {}", target);
-    }
-    Ok(())
-}
-
-async fn run_single_search_netlas_ip(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if netlas_search::is_ip(target) {
-        let netlas_result = netlas_search::query_netlas_ip(target).await?;
-        let parsed_result: Value = serde_json::from_str(&netlas_result)?;
-        let formatted_result = serde_json::to_string_pretty(&parsed_result)?;
-        println!("Netlas (IP):\n{}", formatted_result);
-    } else {
-        println!("Invalid target: {}", target);
-    }
-    Ok(())
-}
-
-async fn run_single_search_zoomeye(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let zoomeye_result = zoomeye_search::query_zoom_eye(target).await?;
-
-    let json: Value = serde_json::from_str(&zoomeye_result)?;
-
-    if let Some(hits) = json["matches"].as_array() {
-        let filtered_hits: Vec<Map<String, Value>> = hits
-            .iter()
-            .filter_map(|hit| match hit {
-                Value::Object(map) => {
-                    if !contains_chinese(map) {
-                        Some(map.clone())
-                    } else {
-                        None
+            "censys" => {
+                if let Err(err) = run_single_search_censys(target, output_file).await {
+                    println!("Error while running Censys search: {}", err);
+            }
+        }
+            "fullhunt" => {
+                if let Err(err) = run_single_search_fullhunt(target, output_file).await {
+                println!("Error while running FullHunt search: {}", err);
+            }
+        }
+            "projectdiscovery" => {
+                if let Err(err) = run_single_search_projectdiscovery(target, output_file).await {
+                println!("Error while running ProjectDiscovery search: {}", err);
+            }
+        }
+            "investigate" => {
+                if let Err(err) = run_single_search_cisco_investigate(target, output_file).await {
+                    println!("Error while running Cisco Investigate search: {}", err);
+                }
+            }
+            "criminalip" => {
+                if let Err(err) = run_single_search_criminalip(target, output_file).await {
+                    println!("Error while running CriminalIP search: {}", err);
+                }
+            }
+            "hunterio" => {
+                if let Err(err) = run_single_search_hunterio(target, output_file).await {
+                    println!("Error while running Hunter.io search: {}", err);
+                }
+            }
+            "netlas" => {
+                if let Err(err) = run_single_search_netlas_ip(target, output_file).await {
+                        println!("Error while running Netlas search: {}", err);
                     }
                 }
-                _ => None,
-            })
-            .collect();
+            "zoomeye" => {
+                if let Err(err) = run_single_search_zoomeye(target, output_file).await {
+                        println!("Error while running ZoomEye search: {}", err);
+                    }
+                }
+                _ => println!("Invalid search type: {}", search_type),
+            } 
+        } else { 
+                if matches.is_present("all") {
+                    if let Err(err) = run_all_searches(target, output_file).await {
+                        println!("Error while running all searches: {}", err);
+                    }
+                } else {
+                    println!("Invalid search type");
+                }
+            }
+}
 
-        let filtered_json = json!({
-            "matches": filtered_hits,
-        });
 
-        let formatted_result = serde_json::to_string_pretty(&filtered_json)?;
+fn print_result(
+    search_type: &str,
+    result: &str,
+    output_file: Option<&str>,
+) -> Result<(), std::io::Error> {
+    println!("{}:\n{}", search_type, result);
 
-        println!("ZoomEye:\n{}", formatted_result);
-    } else {
-        println!("ZoomEye:\nNo results found");
+    if let Some(file_name) = output_file {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open(file_name)?;
+        writeln!(file, "{}:\n{}", search_type, result)?;
     }
 
     Ok(())
 }
-
-fn contains_chinese(hit: &Map<String, Value>) -> bool {
-    if let Some(zh_cn) = hit.get("zh-CN") {
-        if let Some(text) = zh_cn.as_str() {
-            !text.is_empty()
-        } else {
-            true
-        }
-    } else {
-        false
-    }
-}
-
-async fn run_single_search_cisco_investigate(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if cisco_investigate_search::is_domain(target) {
-        let cisco_investigate_result =
-            cisco_investigate_search::query_cisco_investigate(target).await?;
-        println!("Cisco Investigate:\n{:?}", cisco_investigate_result);
-        Ok(()) // Return Ok(()) to indicate success
-    } else {
-        println!("Invalid target: {}", target);
-        Ok(()) // Return Ok(()) to indicate success
-    }
-}
-
-
-
-
