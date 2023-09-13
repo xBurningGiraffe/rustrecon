@@ -1,9 +1,9 @@
 # RustRecon #
 
-RustRecon is a Rust-based recon utility for IP and domain searches using a variety of free, open-source search APIs (aside from Cisco Investigate). This project is still a work-in-progress.
+# RustRecon is a Rust-based recon utility for IP and domain searches using a variety of free, open-source search APIs (aside from Cisco Investigate). This project is still a work-in-progress.
 
-# Note: Although the API keys for each source are free to use, some functionality may only be accessible with paid subscriptions. #
-# Also, several of the free versions of these sources have a limited number of requests per month...so either pay for the service or don't overuse your search amounts. #
+- Note: Although the API keys for each source are free to use, some functionality may only be accessible with paid subscriptions. #
+- Also, several of the free versions of these sources have a limited number of requests per month...so either pay for the service or don't overuse your search amounts. #
 
 # To Do #
 - Filter JSON responses for output
