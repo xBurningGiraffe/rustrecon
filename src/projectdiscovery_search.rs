@@ -38,8 +38,13 @@ pub async fn run_single_search_projectdiscovery(
     output_file: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if is_domain(target) {
-        // Check if the 'chaos' command is available
-        if which("chaos").is_ok() {
+        let check_chaos = Command::new("chaos")
+            .arg("--help")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+
+        if let Ok(_) = check_chaos {
             let api_key = env::var("PROJECTDISCOVERY_API").expect("PROJECTDISCOVERY_API not found");
             let chaos_output = Command::new("chaos")
                 .arg("-d")
@@ -47,26 +52,26 @@ pub async fn run_single_search_projectdiscovery(
                 .arg("-key")
                 .arg(api_key)
                 .output()?;
-            
+
+            let chaos_stdout = String::from_utf8_lossy(&chaos_output.stdout);
+            println!("Chaos:\n{}", chaos_stdout);  // Print to terminal
+
             if let Some(output_file) = output_file {
                 let mut file = File::create(output_file)?;
-                writeln!(file, "Chaos: \n{}", String::from_utf8_lossy(&chaos_output.stdout))?;
+                writeln!(file, "Chaos:\n{}", chaos_stdout)?;
             }
-            return Ok(());
-        }
+        } else {
+            let projectdiscovery_result = query_projectdiscovery(target).await?;
+            let parsed_result = serde_json::from_str::<Value>(&projectdiscovery_result)?;
 
-        // If 'chaos' command is not available, fall back to API query
-        let projectdiscovery_result = query_projectdiscovery(target).await?;
-        let parsed_result = serde_json::from_str::<Value>(&projectdiscovery_result)?;
-        
-        if let Some(output_file) = output_file {
-            let mut file = File::create(output_file)?;
-            writeln!(file, "ProjectDiscovery: \n{}", serde_json::to_string_pretty(&parsed_result)?)?;
+            if let Some(output_file) = output_file {
+                let mut file = File::create(output_file)?;
+                writeln!(file, "ProjectDiscovery:\n{}", serde_json::to_string_pretty(&parsed_result)?)?;
+            }
         }
     } else {
         println!("Invalid target: {}", target);
     }
-
     Ok(())
 }
 

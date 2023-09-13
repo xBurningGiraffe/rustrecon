@@ -7,6 +7,7 @@ use base64;
 use std::fs::File;
 use std::io::Write;
 use serde_json::Value;
+use regex::Regex;
 
 #[derive(Debug)]
 pub struct CensysSearchError {
@@ -31,11 +32,18 @@ pub fn is_ip(target: &str) -> bool {
     target.parse::<IpAddr>().is_ok()
 }
 
-pub async fn query_censys(ip: &str) -> Result<String, Box<dyn Error>> {
+pub fn is_domain(target: &str) -> bool {
+    let domain_regex =
+        Regex::new(r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$").unwrap();
+    domain_regex.is_match(target)
+}
+
+pub async fn query_censys(target: &str) -> Result<String, Box<dyn Error>> {
     let censys_id = get_censys_id().expect("CENSYS_ID not found");
     let censys_secret = get_censys_secret().expect("CENSYS_SECRET not found");
 
-    let url = format!("https://search.censys.io/api/v2/hosts/search?q={}", ip);
+    let url = format!("https://search.censys.io/api/v2/hosts/search?q={}", target);
+
 
     let client = reqwest::Client::new();
 
@@ -74,7 +82,7 @@ pub async fn run_single_search_censys(
     target: &str,
     output_file: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if is_ip(target) {
+    if is_ip(target) || is_domain(target) {
         let censys_result = query_censys(target).await?;
         let parsed_result = serde_json::from_str::<Value>(&censys_result)?;
 
@@ -84,6 +92,7 @@ pub async fn run_single_search_censys(
                 write!(file, "{}", serde_json::to_string_pretty(&parsed_result)?)?;
             }
             None => {
+                println!("Censys:");
                 println!("{}", serde_json::to_string_pretty(&parsed_result)?);
             }
         }
@@ -92,3 +101,5 @@ pub async fn run_single_search_censys(
     }
     Ok(())
 }
+
+

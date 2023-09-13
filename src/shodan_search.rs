@@ -81,6 +81,7 @@ pub async fn run_single_search_shodan(
                 write!(file, "{}", serde_json::to_string_pretty(&parsed_result)?)?;
             }
             None => {
+                println!("Shodan:");
                 println!("{}", serde_json::to_string_pretty(&parsed_result)?);
             }
         }

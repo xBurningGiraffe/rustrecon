@@ -18,41 +18,39 @@ use fullhunt_search::run_single_search_fullhunt;
 use hunterio_search::run_single_search_hunterio;
 use projectdiscovery_search::run_single_search_projectdiscovery;
 use criminalip_search::run_single_search_criminalip;
-use netlas_search::run_single_search_netlas_ip;
+use netlas_search::run_single_search_netlas;
 use zoomeye_search::run_single_search_zoomeye;
 use internetdb_search::run_single_search_internetdb;
 
 async fn run_all_searches(
+    search_types: Vec<&str>,
     target: &str,
     output_file: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let re = Regex::new(r"^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$").unwrap();
+
     if let Ok(ip) = target.parse::<std::net::IpAddr>() {
-        let search_types = vec!["shodan", "censys", "criminalip", "netlas", "zoomeye", "internetdb"];
-        for search_type in search_types {
-            match search_type {
+        for search_type in &search_types {
+            match *search_type {
                 "shodan" => run_single_search_shodan(&ip.to_string(), output_file).await?,
                 "censys" => run_single_search_censys(&ip.to_string(), output_file).await?,
                 "criminalip" => run_single_search_criminalip(&ip.to_string(), output_file).await?,
-                "netlas" => run_single_search_netlas_ip(&ip.to_string(), output_file).await?,
+                "netlas" => run_single_search_netlas(&ip.to_string(), output_file).await?,
                 "zoomeye" => run_single_search_zoomeye(&ip.to_string(), output_file).await?,
-                _ => println!("Invalid search type: {}", search_type),
+                "internetdb" => run_single_search_internetdb(&ip.to_string(), output_file).await?,
+                _ => println!("Invalid search type for IP: {}", search_type),
             }
         }
     } else if re.is_match(target) {
-        let search_types = vec![
-            "shodan",
-            "fullhunt",
-            "projectdiscovery",
-            "hunterio",
-        ];
-        for search_type in search_types {
-            match search_type {
+        for search_type in &search_types {
+            match *search_type {
                 "shodan" => run_single_search_shodan(target, output_file).await?,
+                "censys" => run_single_search_censys(target, output_file).await?,
                 "fullhunt" => run_single_search_fullhunt(target, output_file).await?,
                 "projectdiscovery" => run_single_search_projectdiscovery(target, output_file).await?,
                 "hunterio" => run_single_search_hunterio(target, output_file).await?,
-                _ => println!("Invalid search type: {}", search_type),
+                "netlas" => run_single_search_netlas(target, output_file).await?,
+                _ => println!("Invalid search type for domain: {}", search_type),
             }
         }
     } else {
@@ -61,6 +59,7 @@ async fn run_all_searches(
 
     Ok(())
 }
+
 
 #[tokio::main]
 async fn main() {
@@ -80,8 +79,11 @@ async fn main() {
                     "zoomeye",
                     "internetdb",
                 ])
-                .help("The type of search")
-                .takes_value(true),
+                .help("The type(s) of search, separated by commas")
+                .takes_value(true)
+                .multiple_occurrences(true)
+                .use_delimiter(true)
+                .value_delimiter(','),
         )
         .arg(
             Arg::new("target")
@@ -107,64 +109,30 @@ async fn main() {
         )
         .get_matches();
 
-    let search_type = matches.value_of("search_type");
+    let search_types: Vec<&str> = matches.values_of("search_type").unwrap_or_default().collect();
     let target = matches.value_of("target").unwrap();
     let output_file = matches.value_of("output");
 
-    if let Some(search_type) = search_type {
-        match search_type {
-            "shodan" => {
-                if let Err(err) = run_single_search_shodan(target, output_file).await {
-                    println!("Error while running Shodan search: {}", err);
-                }
-            }
-            "censys" => {
-                if let Err(err) = run_single_search_censys(target, output_file).await {
-                    println!("Error while running Censys search: {}", err);
-                }
-            }
-            "fullhunt" => {
-                if let Err(err) = run_single_search_fullhunt(target, output_file).await {
-                    println!("Error while running FullHunt search: {}", err);
-                }
-            }
-            "projectdiscovery" => {
-                if let Err(err) = run_single_search_projectdiscovery(target, output_file).await {
-                    println!("Error while running ProjectDiscovery search: {}", err);
-                }
-            }
-            "criminalip" => {
-                if let Err(err) = run_single_search_criminalip(target, output_file).await {
-                    println!("Error while running CriminalIP search: {}", err);
-                }
-            }
-            "hunterio" => {
-                if let Err(err) = run_single_search_hunterio(target, output_file).await {
-                    println!("Error while running Hunter.io search: {}", err);
-                }
-            }
-            "netlas" => {
-                if let Err(err) = run_single_search_netlas_ip(target, output_file).await {
-                    println!("Error while running Netlas search: {}", err);
-                }
-            }
-            "zoomeye" => {
-                if let Err(err) = run_single_search_zoomeye(target, output_file).await {
-                    println!("Error while running ZoomEye search: {}", err);
-                }
-            }
-            "internetdb" => {
-                if let Err(err) = run_single_search_internetdb(target, output_file).await {
-                    println!("Error while running InternetDB search: {}", err);
-                }
-            }
-            _ => {
-                println!("Invalid search type: {}", search_type);
-            }
+    if !search_types.is_empty() {
+        if let Err(err) = run_all_searches(search_types, target, output_file).await {
+            println!("Error while running specified searches: {}", err);
         }
     } else if matches.is_present("all") {
-        if let Err(err) = run_all_searches(target, output_file).await {
+        let all_search_types = vec![
+            "shodan",
+            "censys",
+            "fullhunt",
+            "projectdiscovery",
+            "criminalip",
+            "hunterio",
+            "netlas",
+            "zoomeye",
+            "internetdb",
+        ];
+        if let Err(err) = run_all_searches(all_search_types, target, output_file).await {
             println!("Error while running all searches: {}", err);
         }
+    } else {
+        println!("Please specify a search type or use --all to run all search types.");
     }
 }

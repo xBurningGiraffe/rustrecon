@@ -69,6 +69,7 @@ pub async fn run_single_search_internetdb(
                 write!(file, "{}", serde_json::to_string_pretty(&parsed_result)?)?;
             }
             None => {
+                println!("InternetDB:");
                 println!("{}", serde_json::to_string_pretty(&parsed_result)?);
             }
         }
