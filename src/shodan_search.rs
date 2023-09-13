@@ -39,7 +39,7 @@ pub fn is_domain(target: &str) -> bool {
 }
 
 pub async fn query_shodan(target: &str) -> Result<String, Box<dyn Error>> {
-    let shodan_api_key = get_shodan_api_key().expect("SHODAN_API_KEY not found");
+    let shodan_api_key = get_shodan_api_key().expect("SHODAN_API not found");
 
     let url = if is_ip(target) {
         format!("https://api.shodan.io/shodan/host/{}?key={}", target, shodan_api_key)

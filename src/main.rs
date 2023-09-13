@@ -1,8 +1,8 @@
 #![allow(unused)]
 use clap::{App, Arg};
 use std::io::Write;
+use regex::Regex;
 mod censys_search;
-mod cisco_investigate_search;
 mod criminalip_search;
 mod fullhunt_search;
 mod helper;
@@ -20,15 +20,14 @@ use projectdiscovery_search::run_single_search_projectdiscovery;
 use criminalip_search::run_single_search_criminalip;
 use netlas_search::run_single_search_netlas_ip;
 use zoomeye_search::run_single_search_zoomeye;
-use cisco_investigate_search::run_single_search_cisco_investigate;
 use internetdb_search::run_single_search_internetdb;
 
 async fn run_all_searches(
     target: &str,
     output_file: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let re = Regex::new(r"^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$").unwrap();
     if let Ok(ip) = target.parse::<std::net::IpAddr>() {
-        // IP target, include relevant search types
         let search_types = vec!["shodan", "censys", "criminalip", "netlas", "zoomeye", "internetdb"];
         for search_type in search_types {
             match search_type {
@@ -40,11 +39,9 @@ async fn run_all_searches(
                 _ => println!("Invalid search type: {}", search_type),
             }
         }
-    } else if cisco_investigate_search::is_domain(target) {
-        // Domain target, include relevant search types
+    } else if re.is_match(target) {
         let search_types = vec![
             "shodan",
-            "cisco_investigate",
             "fullhunt",
             "projectdiscovery",
             "hunterio",
@@ -52,13 +49,8 @@ async fn run_all_searches(
         for search_type in search_types {
             match search_type {
                 "shodan" => run_single_search_shodan(target, output_file).await?,
-                "cisco_investigate" => {
-                    run_single_search_cisco_investigate(target, output_file).await?
-                }
                 "fullhunt" => run_single_search_fullhunt(target, output_file).await?,
-                "projectdiscovery" => {
-                    run_single_search_projectdiscovery(target, output_file).await?
-                }
+                "projectdiscovery" => run_single_search_projectdiscovery(target, output_file).await?,
                 "hunterio" => run_single_search_hunterio(target, output_file).await?,
                 _ => println!("Invalid search type: {}", search_type),
             }
@@ -82,7 +74,6 @@ async fn main() {
                     "censys",
                     "fullhunt",
                     "projectdiscovery",
-                    "investigate",
                     "criminalip",
                     "hunterio",
                     "netlas",
@@ -120,38 +111,26 @@ async fn main() {
     let target = matches.value_of("target").unwrap();
     let output_file = matches.value_of("output");
 
-    if let Some(help) = matches.value_of("help") {
-        if help == "help" {
-            helper::print_help();
-            return;
-        }
-    }
-
     if let Some(search_type) = search_type {
         match search_type {
-            "shodan" => { 
+            "shodan" => {
                 if let Err(err) = run_single_search_shodan(target, output_file).await {
-                println!("Error while running Shodan search: {}", err);
+                    println!("Error while running Shodan search: {}", err);
+                }
             }
-        }
             "censys" => {
                 if let Err(err) = run_single_search_censys(target, output_file).await {
                     println!("Error while running Censys search: {}", err);
+                }
             }
-        }
             "fullhunt" => {
                 if let Err(err) = run_single_search_fullhunt(target, output_file).await {
-                println!("Error while running FullHunt search: {}", err);
+                    println!("Error while running FullHunt search: {}", err);
+                }
             }
-        }
             "projectdiscovery" => {
                 if let Err(err) = run_single_search_projectdiscovery(target, output_file).await {
-                println!("Error while running ProjectDiscovery search: {}", err);
-            }
-        }
-            "investigate" => {
-                if let Err(err) = run_single_search_cisco_investigate(target, output_file).await {
-                    println!("Error while running Cisco Investigate search: {}", err);
+                    println!("Error while running ProjectDiscovery search: {}", err);
                 }
             }
             "criminalip" => {
@@ -166,48 +145,26 @@ async fn main() {
             }
             "netlas" => {
                 if let Err(err) = run_single_search_netlas_ip(target, output_file).await {
-                        println!("Error while running Netlas search: {}", err);
-                    }
+                    println!("Error while running Netlas search: {}", err);
                 }
+            }
             "zoomeye" => {
                 if let Err(err) = run_single_search_zoomeye(target, output_file).await {
-                        println!("Error while running ZoomEye search: {}", err);
-                    }
+                    println!("Error while running ZoomEye search: {}", err);
                 }
+            }
             "internetdb" => {
                 if let Err(err) = run_single_search_internetdb(target, output_file).await {
-                        println!("Error while running InternetDB search: {}", err);
+                    println!("Error while running InternetDB search: {}", err);
                 }
             }
-                _ => println!("Invalid search type: {}", search_type),
-            } 
-        } else { 
-                if matches.is_present("all") {
-                    if let Err(err) = run_all_searches(target, output_file).await {
-                        println!("Error while running all searches: {}", err);
-                    }
-                } else {
-                    println!("Invalid search type");
-                }
+            _ => {
+                println!("Invalid search type: {}", search_type);
             }
-}
-
-
-fn print_result(
-    search_type: &str,
-    result: &str,
-    output_file: Option<&str>,
-) -> Result<(), std::io::Error> {
-    println!("{}:\n{}", search_type, result);
-
-    if let Some(file_name) = output_file {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .create(true)
-            .open(file_name)?;
-        writeln!(file, "{}:\n{}", search_type, result)?;
+        }
+    } else if matches.is_present("all") {
+        if let Err(err) = run_all_searches(target, output_file).await {
+            println!("Error while running all searches: {}", err);
+        }
     }
-
-    Ok(())
 }
