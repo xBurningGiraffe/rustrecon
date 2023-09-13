@@ -15,7 +15,6 @@ RustRecon is a Rust-based recon utility for IP and domain searches using a varie
            - CENSYS_SECRET
   - FullHunt - FULLHUNT_API
   - ProjectDiscovery - PROJECTDISCOVERY_API
-  - Cisco Investigate - CISCO_INVESTIGATE_API
   - CriminalIP - CRIMINALIP_API
   - Hunter.Io - HUNTERIO_API
   - Netlas - NETLAS_API
