@@ -12,6 +12,7 @@ mod projectdiscovery_search;
 mod shodan_search;
 mod zoomeye_search;
 mod internetdb_search;
+mod banner;
 use shodan_search::run_single_search_shodan;
 use censys_search::run_single_search_censys;
 use fullhunt_search::run_single_search_fullhunt;
@@ -21,6 +22,7 @@ use criminalip_search::run_single_search_criminalip;
 use netlas_search::run_single_search_netlas;
 use zoomeye_search::run_single_search_zoomeye;
 use internetdb_search::run_single_search_internetdb;
+use banner::display_banner;
 
 async fn run_all_searches(
     search_types: Vec<&str>,
@@ -64,18 +66,8 @@ async fn run_all_searches(
 #[tokio::main]
 async fn main() {
     // Banner
-    println!("
-    ███████████                       █████    ███████████                                        
-    ░░███░░░░░███                     ░░███    ░░███░░░░░███                                       
-     ░███    ░███  █████ ████  █████  ███████   ░███    ░███   ██████   ██████   ██████  ████████  
-     ░██████████  ░░███ ░███  ███░░  ░░░███░    ░██████████   ███░░███ ███░░███ ███░░███░░███░░███ 
-     ░███░░░░░███  ░███ ░███ ░░█████   ░███     ░███░░░░░███ ░███████ ░███ ░░░ ░███ ░███ ░███ ░███ 
-     ░███    ░███  ░███ ░███  ░░░░███  ░███ ███ ░███    ░███ ░███░░░  ░███  ███░███ ░███ ░███ ░███ 
-     █████   █████ ░░████████ ██████   ░░█████  █████   █████░░██████ ░░██████ ░░██████  ████ █████
-    ░░░░░   ░░░░░   ░░░░░░░░ ░░░░░░     ░░░░░  ░░░░░   ░░░░░  ░░░░░░   ░░░░░░   ░░░░░░  ░░░░ ░░░░░ 
+    banner::display_banner();
 
-    Created by xBurningGiraffe                                                                                   
-    ");
     let matches = App::new("Rust Recon")
         .arg(
             Arg::new("search_type")
