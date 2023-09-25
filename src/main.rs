@@ -102,15 +102,17 @@ async fn main() {
                 .long("target")
                 .value_name("TARGET")
                 .help("The target IP address or domain")
-                .takes_value(true),
+                .takes_value(true)
+                .required_unless("target_list"),
         )
         .arg(
-            Arg::new("list")
+            Arg::new("target_list")
             .short('l')
             .long("target_list")
             .value_name("TARGET_LIST")
             .help("List of target IP addresses")
-            .takes_value(true),
+            .takes_value(true)
+            .required_unless("target"),
         )
         .arg(
             Arg::new("output")
@@ -128,47 +130,47 @@ async fn main() {
         )
         .get_matches();
 
-    let search_types: Vec<&str> = matches.values_of("search_type").unwrap_or_default().collect();
-    let target = matches.value_of("target").unwrap();
-    let target_list_file = matches.value_of("target_list");
-    let output_file = matches.value_of("output");
-
-    if let Some(target_list_path) = target_list_file {
-        // Read targets from file
-        match read_targets_from_file(target_list_path) {
-            Ok(targets) => {
-                for target in targets {
-                    if let Err(err) = run_all_searches(search_types.clone(), &target, output_file).await {
-                        println!("Error while running searches for target {}: {}", target, err);
+        let search_types: Vec<&str> = matches.values_of("search_type").unwrap_or_default().collect();
+        let output_file = matches.value_of("output");
+    
+        if let Some(target_list_path) = matches.value_of("target_list") {
+            // Read targets from file
+            match read_targets_from_file(target_list_path) {
+                Ok(targets) => {
+                    for target in targets {
+                        if let Err(err) = run_all_searches(search_types.clone(), &target, output_file).await {
+                            println!("Error while running searches for target {}: {}", target, err);
+                        }
                     }
-                }
-            },
-            Err(e) => println!("Failed to read target list: {}", e),
-        }
-    } else if let Some(single_target) = matches.value_of("target") {
-        // Code for handling single target
-        if !search_types.is_empty() {
-            if let Err(err) = run_all_searches(search_types.clone(), single_target, output_file).await {
-                println!("Error while running specified searches: {}", err);
+                },
+                Err(e) => println!("Failed to read target list: {}", e),
             }
-        } else if matches.is_present("all") {
-            let all_search_types = vec![
-                "shodan",
-                "censys",
-                "fullhunt",
-                "projectdiscovery",
-                "criminalip",
-                "hunterio",
-                "netlas",
-                "zoomeye",
-                "internetdb",
-                "virustotal",
-            ];
-            if let Err(err) = run_all_searches(all_search_types, single_target, output_file).await {
-                println!("Error while running all searches: {}", err);
+        } else if let Some(single_target) = matches.value_of("target") {
+            // Code for handling single target
+            if !search_types.is_empty() {
+                if let Err(err) = run_all_searches(search_types.clone(), single_target, output_file).await {
+                    println!("Error while running specified searches: {}", err);
+                }
+            } else if matches.is_present("all") {
+                let all_search_types = vec![
+                    "shodan",
+                    "censys",
+                    "fullhunt",
+                    "projectdiscovery",
+                    "criminalip",
+                    "hunterio",
+                    "netlas",
+                    "zoomeye",
+                    "internetdb",
+                    "virustotal",
+                ];
+                if let Err(err) = run_all_searches(all_search_types, single_target, output_file).await {
+                    println!("Error while running all searches: {}", err);
+                }
+            } else {
+                println!("Please specify a search type or use --all to run all search types.");
             }
         } else {
-            println!("Please specify a search type or use --all to run all search types.");
+            println!("Either a single target or a target list must be provided.");
         }
     }
-}
