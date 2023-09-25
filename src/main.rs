@@ -102,7 +102,6 @@ async fn main() {
                 .long("target")
                 .value_name("TARGET")
                 .help("The target IP address or domain")
-                .required(true)
                 .takes_value(true),
         )
         .arg(
