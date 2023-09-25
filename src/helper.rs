@@ -18,4 +18,5 @@ pub fn print_help() {
     println!("  netlas            IP or domain search using Netlas");
     println!("  zoomeye           IP search using ZoomEye");
     println!("  internetdb        Vulnerability check for IP using internetdb");
+    println!("  virustotal        IP or domain search using VirusTotal");
 }

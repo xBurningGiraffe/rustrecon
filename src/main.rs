@@ -11,6 +11,7 @@ mod zoomeye_search;
 mod internetdb_search;
 mod banner;
 mod read_list;
+mod vt_search;
 
 use clap::{App, Arg};
 use std::io::Write;
@@ -26,6 +27,7 @@ use zoomeye_search::run_single_search_zoomeye;
 use internetdb_search::run_single_search_internetdb;
 use banner::display_banner;
 use read_list::read_targets_from_file;
+use vt_search::run_single_search_virustotal;
 
 async fn run_all_searches(
     search_types: Vec<&str>,
@@ -43,6 +45,7 @@ async fn run_all_searches(
                 "netlas" => run_single_search_netlas(&ip.to_string(), output_file).await?,
                 "zoomeye" => run_single_search_zoomeye(&ip.to_string(), output_file).await?,
                 "internetdb" => run_single_search_internetdb(&ip.to_string(), output_file).await?,
+                "virustotal" => run_single_search_virustotal(&ip.to_string(), output_file).await?,
                 _ => println!("Invalid search type for IP: {}", search_type),
             }
         }
@@ -86,6 +89,7 @@ async fn main() {
                     "netlas",
                     "zoomeye",
                     "internetdb",
+                    "virustotal",
                 ])
                 .help("The type(s) of search, separated by commas")
                 .takes_value(true)
@@ -159,6 +163,7 @@ async fn main() {
                 "netlas",
                 "zoomeye",
                 "internetdb",
+                "virustotal",
             ];
             if let Err(err) = run_all_searches(all_search_types, single_target, output_file).await {
                 println!("Error while running all searches: {}", err);
