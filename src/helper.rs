@@ -2,6 +2,7 @@ pub fn print_help() {
     println!("Usage: RustRecon [command]");
     println!("Options:");
     println!("  -t                Specify the target (IP, domain)");
+    println!("  -l                List of targets (IPs or domains");
     println!("  -o                Output the results to a file");
     println!("  -all              Run all applicable search types on target");
     println!("  help              Print this screen");

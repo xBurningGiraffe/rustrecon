@@ -1,7 +1,4 @@
 #![allow(unused)]
-use clap::{App, Arg};
-use std::io::Write;
-use regex::Regex;
 mod censys_search;
 mod criminalip_search;
 mod fullhunt_search;
@@ -13,6 +10,11 @@ mod shodan_search;
 mod zoomeye_search;
 mod internetdb_search;
 mod banner;
+mod read_list;
+
+use clap::{App, Arg};
+use std::io::Write;
+use regex::Regex;
 use shodan_search::run_single_search_shodan;
 use censys_search::run_single_search_censys;
 use fullhunt_search::run_single_search_fullhunt;
@@ -23,6 +25,7 @@ use netlas_search::run_single_search_netlas;
 use zoomeye_search::run_single_search_zoomeye;
 use internetdb_search::run_single_search_internetdb;
 use banner::display_banner;
+use read_list::read_targets_from_file;
 
 async fn run_all_searches(
     search_types: Vec<&str>,
@@ -99,6 +102,14 @@ async fn main() {
                 .takes_value(true),
         )
         .arg(
+            Arg::new("list")
+            .short('l')
+            .long("target_list")
+            .value_name("TARGET_LIST")
+            .help("List of target IP addresses")
+            .takes_value(true),
+        )
+        .arg(
             Arg::new("output")
                 .short('o')
                 .long("output")
@@ -116,28 +127,44 @@ async fn main() {
 
     let search_types: Vec<&str> = matches.values_of("search_type").unwrap_or_default().collect();
     let target = matches.value_of("target").unwrap();
+    let target_list_file = matches.value_of("target_list");
     let output_file = matches.value_of("output");
 
-    if !search_types.is_empty() {
-        if let Err(err) = run_all_searches(search_types, target, output_file).await {
-            println!("Error while running specified searches: {}", err);
+    if let Some(target_list_path) = target_list_file {
+        // Read targets from file
+        match read_targets_from_file(target_list_path) {
+            Ok(targets) => {
+                for target in targets {
+                    if let Err(err) = run_all_searches(search_types.clone(), &target, output_file).await {
+                        println!("Error while running searches for target {}: {}", target, err);
+                    }
+                }
+            },
+            Err(e) => println!("Failed to read target list: {}", e),
         }
-    } else if matches.is_present("all") {
-        let all_search_types = vec![
-            "shodan",
-            "censys",
-            "fullhunt",
-            "projectdiscovery",
-            "criminalip",
-            "hunterio",
-            "netlas",
-            "zoomeye",
-            "internetdb",
-        ];
-        if let Err(err) = run_all_searches(all_search_types, target, output_file).await {
-            println!("Error while running all searches: {}", err);
+    } else if let Some(single_target) = matches.value_of("target") {
+        // Code for handling single target
+        if !search_types.is_empty() {
+            if let Err(err) = run_all_searches(search_types.clone(), single_target, output_file).await {
+                println!("Error while running specified searches: {}", err);
+            }
+        } else if matches.is_present("all") {
+            let all_search_types = vec![
+                "shodan",
+                "censys",
+                "fullhunt",
+                "projectdiscovery",
+                "criminalip",
+                "hunterio",
+                "netlas",
+                "zoomeye",
+                "internetdb",
+            ];
+            if let Err(err) = run_all_searches(all_search_types, single_target, output_file).await {
+                println!("Error while running all searches: {}", err);
+            }
+        } else {
+            println!("Please specify a search type or use --all to run all search types.");
         }
-    } else {
-        println!("Please specify a search type or use --all to run all search types.");
     }
 }
